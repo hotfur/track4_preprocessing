@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 import queue
 
 
+
 def findAngle(m1, m2):
     # Store the tan value  of the angle
     angle = abs((m2 - m1) / (1 + m1 * m2))
@@ -180,28 +181,126 @@ def mainfunc(f):
         cv2.imwrite("../dataset/classify/unknown/seg/" + name[0] + "_mask.jpg", cropt)
 
 
-def mainfunc_new(f):
-    """New main function"""
+def encoder(f):
+    """Encode the dataset into queue of items, each queue contains only items of specific corner counts.
+     Each item is the name of each image in the dataset"""
     path_seg = '../dataset/segmentation_labels/'
     name = f.split('.')
     default_file = path_seg + name[0] + '_seg.' + name[1]
     src = cv2.imread(cv2.samples.findFile(default_file))
     corners_check_shape, corners = check_shape(src)
+    # Encoder: pack shape & item_no together to classify item type
+    item_no = f.split("_")
     if corners_check_shape > 7:
-
-    elif corners_check_shape == 6:
-
+        shape_8.put((item_no[0], name[0]))
+    elif (corners_check_shape == 7) or (corners_check_shape == 6) or (corners_check_shape == 5):
+        shape_6.put((item_no[0], name[0]))
     elif corners_check_shape == 4:
-
+        shape_4.put((item_no[0], name[0]))
     else:
+        shape_3.put((item_no[0], name[0]))
+
+def decoder(q):
+    """Decode a queue with duplicated items into a dict containing only counts of such items"""
+    result = {}
+    past = None
+    while not q.empty():
+        cur = q.get()
+        if past is None:
+            past = cur
+            past[past[0]] = [past[1]]
+        elif past[0] == cur[0]:
+            temp = result.get(past[1])
+            temp.append(cur[1])
+            result[past[0]] = temp
+        else:
+            past = cur
+            past[past[0]] = [past[1]]
+    return result
+
+
+def writer(name, obj_type):
+    path = '../dataset/train/'
+    path_seg = '../dataset/segmentation_labels/'
+    src_color = cv2.imread(cv2.samples.findFile(path + name + ".jpg"))
+    src = cv2.imread(cv2.samples.findFile(path_seg + name + '_seg.jpg'))
+    src = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
+    _, src = cv2.threshold(src, 128, 1, cv2.THRESH_BINARY)
+    cropt = cv2.bitwise_and(src_color, src_color, mask=src)
+    src *= 255
+    if obj_type == "box":
+        cv2.imwrite("../dataset/classify/box/label/" + name[0] + "_mask.jpg", src)
+        cv2.imwrite("../dataset/classify/box/seg/" + name[0] + "_mask.jpg", cropt)
+    elif obj_type == "abstract":
+        cv2.imwrite("../dataset/classify/abstract/label/" + name[0] + "_mask.jpg", src)
+        cv2.imwrite("../dataset/classify/abstract/seg/" + name[0] + "_mask.jpg", cropt)
+    else:
+        cv2.imwrite("../dataset/classify/unknown/label/" + name[0] + "_mask.jpg", src)
+        cv2.imwrite("../dataset/classify/unknown/seg/" + name[0] + "_mask.jpg", cropt)
 
 
 if __name__ == "__main__":
     path_main = '../dataset/train/'
     files = os.listdir(path_main)
-    shape_7 = queue.PriorityQueue()
+    shape_8 = queue.PriorityQueue()
+    shape_6 = queue.PriorityQueue()
+    shape_4 = queue.PriorityQueue()
+    shape_3 = queue.PriorityQueue()
     # for f in range(10):
     #     mainfunc(files[f])
+
+    # Encode
     with ThreadPoolExecutor() as executor:
         for f in files:
-            executor.submit(mainfunc, f)
+            executor.submit(encoder, f)
+    # Decode
+    with ThreadPoolExecutor() as executor:
+        dict_8 = executor.submit(decoder, shape_8).result()
+        dict_6 = executor.submit(decoder, shape_6).result()
+        dict_4 = executor.submit(decoder, shape_4).result()
+        dict_3 = executor.submit(decoder, shape_3).result()
+
+    # Classification based on corner numbers and same objects
+    boxes = {}
+    abstract = {}
+    unknown = {}
+    for k in dict_6.keys():
+        if k in dict_4:
+            boxes[k] = dict_4.pop(k) + dict_6.pop(k)
+            if k in dict_3:
+                boxes[k] += dict_3.pop(k)
+            if k in dict_8:
+                boxes[k] += dict_8.pop(k)
+        elif k in dict_3:
+            unknown[k] = dict_6.pop(k) + dict_3.pop(k)
+            if k in dict_8:
+                abstract[k] = dict_8.pop(k) + unknown.pop(k)
+        elif k in dict_8:
+            unknown[k] = dict_6.pop(k) + dict_8.pop(k)
+        else:
+            boxes[k] = dict_6[k]
+    for k in dict_3.keys():
+        if k in dict_4:
+            boxes[k] = dict_3.pop(k) + dict_4.pop(k)
+        if k in dict_8:
+            abstract[k] = dict_3.pop(k) + dict_8.pop(k)
+        else:
+            unknown[k] = dict_3.pop(k)
+    for k in dict_4.keys():
+        if k in dict_3:
+            boxes[k] = dict_3.pop(k) + dict_4.pop(k)
+        if k in dict_8:
+            abstract[k] = dict_4.pop(k) + dict_8.pop(k)
+        else:
+            boxes[k] = dict_4.pop(k)
+    for k in dict_8.keys():
+        abstract[k] = dict_8.pop(k)
+
+    # Result writer
+    with ThreadPoolExecutor() as executor:
+        for v in boxes.values():
+            executor.submit(writer, v, "box")
+        for v in abstract.values():
+            executor.submit(writer, v, "abstract")
+        for v in unknown.values():
+            executor.submit(writer, v, "unknown")
