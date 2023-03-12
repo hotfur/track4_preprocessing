@@ -208,14 +208,14 @@ def decoder(q):
         cur = q.get()
         if past is None:
             past = cur
-            past[past[0]] = [past[1]]
+            result[past[0]] = [past[1]]
         elif past[0] == cur[0]:
-            temp = result.get(past[1])
+            temp = result.get(past[0])
             temp.append(cur[1])
             result[past[0]] = temp
         else:
             past = cur
-            past[past[0]] = [past[1]]
+            result[past[0]] = [past[1]]
     return result
 
 
@@ -229,14 +229,14 @@ def writer(name, obj_type):
     cropt = cv2.bitwise_and(src_color, src_color, mask=src)
     src *= 255
     if obj_type == "box":
-        cv2.imwrite("../dataset/classify/box/label/" + name[0] + "_mask.jpg", src)
-        cv2.imwrite("../dataset/classify/box/seg/" + name[0] + "_mask.jpg", cropt)
+        cv2.imwrite("../dataset/classify/box/label/" + name + ".jpg", src)
+        cv2.imwrite("../dataset/classify/box/seg/" + name + ".jpg", cropt)
     elif obj_type == "abstract":
-        cv2.imwrite("../dataset/classify/abstract/label/" + name[0] + "_mask.jpg", src)
-        cv2.imwrite("../dataset/classify/abstract/seg/" + name[0] + "_mask.jpg", cropt)
+        cv2.imwrite("../dataset/classify/abstract/label/" + name + ".jpg", src)
+        cv2.imwrite("../dataset/classify/abstract/seg/" + name + ".jpg", cropt)
     else:
-        cv2.imwrite("../dataset/classify/unknown/label/" + name[0] + "_mask.jpg", src)
-        cv2.imwrite("../dataset/classify/unknown/seg/" + name[0] + "_mask.jpg", cropt)
+        cv2.imwrite("../dataset/classify/unknown/label/" + name + ".jpg", src)
+        cv2.imwrite("../dataset/classify/unknown/seg/" + name + ".jpg", cropt)
 
 
 if __name__ == "__main__":
@@ -264,7 +264,8 @@ if __name__ == "__main__":
     boxes = {}
     abstract = {}
     unknown = {}
-    for k in dict_6.keys():
+    dict6_keys = list(dict_6.keys())
+    for k in dict6_keys:
         if k in dict_4:
             boxes[k] = dict_4.pop(k) + dict_6.pop(k)
             if k in dict_3:
@@ -279,28 +280,32 @@ if __name__ == "__main__":
             unknown[k] = dict_6.pop(k) + dict_8.pop(k)
         else:
             boxes[k] = dict_6[k]
-    for k in dict_3.keys():
+    dict3_keys = list(dict_3.keys())
+    for k in dict3_keys:
         if k in dict_4:
             boxes[k] = dict_3.pop(k) + dict_4.pop(k)
         if k in dict_8:
             abstract[k] = dict_3.pop(k) + dict_8.pop(k)
         else:
             unknown[k] = dict_3.pop(k)
-    for k in dict_4.keys():
-        if k in dict_3:
-            boxes[k] = dict_3.pop(k) + dict_4.pop(k)
+    dict4_keys = list(dict_4.keys())
+    for k in dict4_keys:
         if k in dict_8:
             abstract[k] = dict_4.pop(k) + dict_8.pop(k)
         else:
             boxes[k] = dict_4.pop(k)
-    for k in dict_8.keys():
+    dict8_keys = list(dict_8.keys())
+    for k in dict8_keys:
         abstract[k] = dict_8.pop(k)
 
     # Result writer
     with ThreadPoolExecutor() as executor:
         for v in boxes.values():
-            executor.submit(writer, v, "box")
+            for item in v:
+                executor.submit(writer, item, "box")
         for v in abstract.values():
-            executor.submit(writer, v, "abstract")
+            for item in v:
+                executor.submit(writer, item, "abstract")
         for v in unknown.values():
-            executor.submit(writer, v, "unknown")
+            for item in v:
+                executor.submit(writer, item, "unknown")
