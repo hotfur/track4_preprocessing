@@ -155,8 +155,8 @@ def check_shape(src):
 
 def mainfunc(f):
     """Old main function"""
-    path = 'dataset/train/'
-    path_seg = 'dataset/segmentation_labels/'
+    path = '../dataset/train/'
+    path_seg = '../dataset/segmentation_labels/'
     name = f.split('.')
     src_color = cv2.imread(cv2.samples.findFile(path + f))
     default_file = path_seg + name[0] + '_seg.' + name[1]
@@ -180,8 +180,24 @@ def mainfunc(f):
         cv2.imwrite("../dataset/classify/unknown/seg/" + name[0] + "_mask.jpg", cropt)
 
 
+def mainfunc_new(f):
+    """New main function"""
+    path_seg = '../dataset/segmentation_labels/'
+    name = f.split('.')
+    default_file = path_seg + name[0] + '_seg.' + name[1]
+    src = cv2.imread(cv2.samples.findFile(default_file))
+    corners_check_shape, corners = check_shape(src)
+    if corners_check_shape > 7:
+
+    elif corners_check_shape == 6:
+
+    elif corners_check_shape == 4:
+
+    else:
+
+
 if __name__ == "__main__":
-    path_main = 'dataset/train/'
+    path_main = '../dataset/train/'
     files = os.listdir(path_main)
     shape_7 = queue.PriorityQueue()
     # for f in range(10):
