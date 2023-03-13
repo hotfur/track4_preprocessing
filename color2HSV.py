@@ -33,7 +33,7 @@ path_seg = '../dataset/backup/abstract/test_seg/'
 files = os.listdir(path)
 
 for i in range(len(files)):
-    f = files[i]
+    f = "00036_1508.jpg"
     name = f.split('.')
     print(f)
     img_RGB = cv2.imread(path + f)
@@ -43,7 +43,7 @@ for i in range(len(files)):
 
     img_Luv = cv2.cvtColor(img_RGB, cv2.COLOR_BGR2Lab)
     masked = np.ma.array(data=img_Luv, mask=np.repeat(np.logical_not(img_seg)[..., None], 3, axis=-1), fill_value=0)
-    masked[:,:,1] = np.average(img_Luv[:,:,1], weights=img_seg)
+    masked[:,:,0] = np.average(img_Luv[:,:,0], weights=img_seg)
 
     img_Luv = cv2.cvtColor(masked, cv2.COLOR_Lab2RGB)
 

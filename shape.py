@@ -223,6 +223,7 @@ def writer(name, obj_type):
     path = '../dataset/train/'
     path_seg = '../dataset/segmentation_labels/'
     src_color = cv2.imread(cv2.samples.findFile(path + name + ".jpg"))
+
     src = cv2.imread(cv2.samples.findFile(path_seg + name + '_seg.jpg'))
     src = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
     _, src = cv2.threshold(src, 128, 1, cv2.THRESH_BINARY)
