@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor
 import queue
-
+from msrcr import retinex_FM
 
 
 def findAngle(m1, m2):
@@ -229,6 +229,8 @@ def writer(name, obj_type):
     _, src = cv2.threshold(src, 128, 1, cv2.THRESH_BINARY)
     cropt = cv2.bitwise_and(src_color, src_color, mask=src)
     src *= 255
+    # Apply MSRCR
+    cropt = cv2.GaussianBlur(cv2.bilateralFilter(retinex_FM(cropt, iter=4), d=9, sigmaSpace=50, sigmaColor=50), ksize=(3, 3), sigmaX=1)
     if obj_type == "box":
         cv2.imwrite("../dataset/classify/box/label/" + name + ".jpg", src)
         cv2.imwrite("../dataset/classify/box/seg/" + name + ".jpg", cropt)
@@ -284,7 +286,7 @@ if __name__ == "__main__":
     dict3_keys = list(dict_3.keys())
     for k in dict3_keys:
         if k in dict_4:
-            boxes[k] = dict_3.pop(k) + dict_4.pop(k)
+            unknown[k] = dict_3.pop(k) + dict_4.pop(k)
         if k in dict_8:
             abstract[k] = dict_3.pop(k) + dict_8.pop(k)
         else:
