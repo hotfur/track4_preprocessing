@@ -223,7 +223,6 @@ def writer(name, obj_type):
     path = '../dataset/train/'
     path_seg = '../dataset/segmentation_labels/'
     src_color = cv2.imread(cv2.samples.findFile(path + name + ".jpg"))
-
     src = cv2.imread(cv2.samples.findFile(path_seg + name + '_seg.jpg'))
     src = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
     _, src = cv2.threshold(src, 128, 1, cv2.THRESH_BINARY)
@@ -231,7 +230,10 @@ def writer(name, obj_type):
     src *= 255
     # Apply MSRCR
     cropt = cv2.GaussianBlur(cv2.bilateralFilter(retinex_FM(cropt, iter=4), d=9, sigmaSpace=50, sigmaColor=50), ksize=(3, 3), sigmaX=1)
-    if obj_type == "box":
+    # Remove purely white objects
+    if np.mean(cropt, where=np.repeat(src[..., None], 3, axis=-1).astype(bool)) > 230:
+        pass
+    elif obj_type == "box":
         cv2.imwrite("../dataset/classify/box/label/" + name + ".jpg", src)
         cv2.imwrite("../dataset/classify/box/seg/" + name + ".jpg", cropt)
     elif obj_type == "abstract":
