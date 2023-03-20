@@ -193,8 +193,12 @@ def encoder(f):
     item_no = f.split("_")
     if corners_check_shape > 7:
         shape_8.put((item_no[0], name[0]))
-    elif (corners_check_shape == 7) or (corners_check_shape == 6) or (corners_check_shape == 5):
+    elif corners_check_shape == 7:
+        shape_7.put((item_no[0], name[0]))
+    elif corners_check_shape == 6:
         shape_6.put((item_no[0], name[0]))
+    elif corners_check_shape == 5:
+        shape_5.put((item_no[0], name[0]))
     elif corners_check_shape == 4:
         shape_4.put((item_no[0], name[0]))
     else:
@@ -252,16 +256,33 @@ def writer(name, obj_type):
     elif obj_type == "abstract":
         cv2.imwrite("../dataset/classify/abstract/label/" + name + ".jpg", src)
         cv2.imwrite("../dataset/classify/abstract/seg/" + name + ".jpg", cropt)
-    else:
-        cv2.imwrite("../dataset/classify/unknown/label/" + name + ".jpg", src)
-        cv2.imwrite("../dataset/classify/unknown/seg/" + name + ".jpg", cropt)
+    elif obj_type == "bottles":
+        cv2.imwrite("../dataset/classify/bottles/label/" + name + ".jpg", src)
+        cv2.imwrite("../dataset/classify/bottles/seg/" + name + ".jpg", cropt)
+
+
+def highest_count_dict(k, dict_list):
+    img_count = []
+    value = []
+    for dict in dict_list:
+        img_list = dict.pop(k, None)
+        if img_list is not None:
+            value += img_list
+            img_count.append(len(img_list))
+        else:
+            img_count.append(0)
+
+    max_indx = np.argmax(img_count)
+    return max_indx, value
 
 
 if __name__ == "__main__":
     path_main = '../dataset/train/'
     files = os.listdir(path_main)
     shape_8 = queue.PriorityQueue()
+    shape_7 = queue.PriorityQueue()
     shape_6 = queue.PriorityQueue()
+    shape_5 = queue.PriorityQueue()
     shape_4 = queue.PriorityQueue()
     shape_3 = queue.PriorityQueue()
     # for f in range(10):
@@ -274,47 +295,34 @@ if __name__ == "__main__":
     # Decode
     with ThreadPoolExecutor() as executor:
         dict_8 = executor.submit(decoder, shape_8).result()
+        dict_7 = executor.submit(decoder, shape_7).result()
         dict_6 = executor.submit(decoder, shape_6).result()
+        dict_5 = executor.submit(decoder, shape_5).result()
         dict_4 = executor.submit(decoder, shape_4).result()
         dict_3 = executor.submit(decoder, shape_3).result()
 
     # Classification based on corner numbers and same objects
     boxes = {}
+    bottles = {}
     abstract = {}
-    unknown = {}
-    dict6_keys = list(dict_6.keys())
-    for k in dict6_keys:
-        if k in dict_4:
-            boxes[k] = dict_4.pop(k) + dict_6.pop(k)
-            if k in dict_3:
-                boxes[k] += dict_3.pop(k)
-            if k in dict_8:
-                boxes[k] += dict_8.pop(k)
-        elif k in dict_3:
-            unknown[k] = dict_6.pop(k) + dict_3.pop(k)
-            if k in dict_8:
-                abstract[k] = dict_8.pop(k) + unknown.pop(k)
-        elif k in dict_8:
-            unknown[k] = dict_6.pop(k) + dict_8.pop(k)
-        else:
-            boxes[k] = dict_6[k]
-    dict3_keys = list(dict_3.keys())
-    for k in dict3_keys:
-        if k in dict_4:
-            boxes[k] = dict_3.pop(k) + dict_4.pop(k)
-        if k in dict_8:
-            abstract[k] = dict_3.pop(k) + dict_8.pop(k)
-        else:
-            unknown[k] = dict_3.pop(k)
-    dict4_keys = list(dict_4.keys())
-    for k in dict4_keys:
-        if k in dict_8:
-            abstract[k] = dict_4.pop(k) + dict_8.pop(k)
-        else:
-            boxes[k] = dict_4.pop(k)
-    dict8_keys = list(dict_8.keys())
-    for k in dict8_keys:
-        abstract[k] = dict_8.pop(k)
+    dict_list = [dict_3, dict_4, dict_5, dict_6, dict_7, dict_8]
+    for i in range(6):
+        dict_keys = list(dict_list[i].keys())
+        for k in dict_keys:
+            max_indx, value = highest_count_dict(k, dict_list)
+            if max_indx == 0:
+                abstract[k] = value
+            if max_indx == 1:
+                boxes[k] = value
+            if max_indx == 2:
+                abstract[k] = value
+            if max_indx == 3:
+                boxes[k] = value
+            if max_indx == 4:
+                abstract[k] = value
+            if max_indx == 5:
+                bottles[k] = value
+
 
     # Result writer
     with ThreadPoolExecutor() as executor:
@@ -324,6 +332,6 @@ if __name__ == "__main__":
         for v in abstract.values():
             for item in v:
                 executor.submit(writer, item, "abstract")
-        for v in unknown.values():
+        for v in bottles.values():
             for item in v:
-                executor.submit(writer, item, "unknown")
+                executor.submit(writer, item, "bottles")
