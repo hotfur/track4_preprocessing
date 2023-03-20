@@ -230,9 +230,22 @@ def writer(name, obj_type):
     src *= 255
     # Apply MSRCR
     cropt = cv2.GaussianBlur(cv2.bilateralFilter(retinex_FM(cropt, iter=4), d=9, sigmaSpace=50, sigmaColor=50), ksize=(3, 3), sigmaX=1)
+    # Convert to Luv and calculate chromaticity distance
+    mask = np.repeat(src[..., None], 3, axis=-1).astype(bool)
+    img_Luv = cv2.cvtColor(cropt, cv2.COLOR_BGR2Luv)
+    img_Luv[:, :, 0] = img_Luv[:, :, 0] * 0.9
+    cropt = cv2.cvtColor(img_Luv, cv2.COLOR_Luv2BGR)
+    var = np.var(img_Luv, axis=(0, 1), where=mask)
+    color_dist = np.sqrt(var[1]+var[2])
     # Remove purely white objects
-    if np.mean(cropt, where=np.repeat(src[..., None], 3, axis=-1).astype(bool)) > 230:
-        pass
+    if np.mean(cropt, where=mask) > 255*0.8:
+        cv2.imwrite("../dataset/classify/white_removal/label/" + name + ".jpg", src)
+        cv2.imwrite("../dataset/classify/white_removal/seg/" + name + ".jpg", cropt)
+    # Remove noisy surface objects
+    elif (color_dist < 5):
+        cv2.imwrite("../dataset/classify/color_removal/label/" + name + ".jpg", src)
+        cv2.imwrite("../dataset/classify/color_removal/seg/" + name + ".jpg", cropt)
+    # Write objects to their categories
     elif obj_type == "box":
         cv2.imwrite("../dataset/classify/box/label/" + name + ".jpg", src)
         cv2.imwrite("../dataset/classify/box/seg/" + name + ".jpg", cropt)
@@ -288,7 +301,7 @@ if __name__ == "__main__":
     dict3_keys = list(dict_3.keys())
     for k in dict3_keys:
         if k in dict_4:
-            unknown[k] = dict_3.pop(k) + dict_4.pop(k)
+            boxes[k] = dict_3.pop(k) + dict_4.pop(k)
         if k in dict_8:
             abstract[k] = dict_3.pop(k) + dict_8.pop(k)
         else:

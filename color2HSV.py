@@ -28,37 +28,54 @@ import numpy as np
 
 # loading the file
 
-path = '../dataset/backup/abstract/test/'
-path_seg = '../dataset/backup/abstract/test_seg/'
+# path = '../dataset/classify/color_removal/seg/'
+# output_path='../dataset/classify/box/test/'
+# path_seg = '../dataset/classify/color_removal/label/'
+path = '../dataset/classify/color_removal/test/'
 files = os.listdir(path)
 
-for i in range(len(files)):
-    f = "00036_1508.jpg"
+for f in files:
+    if f.__contains__("seg"):
+        continue
     name = f.split('.')
-    print(f)
     img_RGB = cv2.imread(path + f)
-    img_seg = cv2.imread(path_seg + f)
+    # img_seg = cv2.imread(path_seg + f)
+    img_seg = cv2.imread(path + name[0] + "_seg.jpg")
     img_seg = cv2.cvtColor(img_seg, cv2.COLOR_BGR2GRAY)
     _, img_seg = cv2.threshold(img_seg, 128, 1, cv2.THRESH_BINARY)
 
-    img_Luv = cv2.cvtColor(img_RGB, cv2.COLOR_BGR2Lab)
-    masked = np.ma.array(data=img_Luv, mask=np.repeat(np.logical_not(img_seg)[..., None], 3, axis=-1), fill_value=0)
-    masked[:,:,0] = np.average(img_Luv[:,:,0], weights=img_seg)
+    img_Luv = cv2.cvtColor(img_RGB, cv2.COLOR_BGR2Luv)
+    # img_Luv[:, :, 0] = img_Luv[:, :, 0] * 0.75
+    # img_Luv = cv2.cvtColor(img_Luv, cv2.COLOR_BGR2HSV)
+    var = np.var(img_Luv, axis=(0, 1), where=np.repeat(img_seg[..., None], 3, axis=-1).astype(bool))
+    mean = np.mean(img_Luv, axis=(0,1), where=np.repeat(img_seg[..., None], 3, axis=-1).astype(bool))
+    color_dist = np.sqrt(var[1] + var[2])
+    if color_dist < 9.5:
+        print(f)
+        print(mean)
+        print(np.sqrt(var))
+        print(np.sqrt(var[1]+var[2]))
+        print(color_dist < 9.5)
 
-    img_Luv = cv2.cvtColor(masked, cv2.COLOR_Lab2RGB)
+    # print(np.histogram(img_Luv[...,2], weights=img_seg))
 
-    titles = ['With L channel', 'With u channel', 'With v channel']
-    cmaps = [plt.cm.Greys, plt.cm.Greys, plt.cm.Greys]
-    fig, axes = plt.subplots(1, 4, figsize=(10, 30), num=name[0])
-    objs = zip(axes[:-1], (img_Luv[:, :, 0] / 255.0, img_Luv[:, :, 1] / 255.0, img_Luv[:, :, 2] / 255.0), titles, cmaps)
+    #
+    # cv2.imwrite(os.path.join(output_path, f), img_Luv)
 
-    for ax, channel, title, cmap in objs:
-        ax.imshow(channel, cmap=cmap)
-        ax.set_title(title)
-        ax.set_xticks(())
-        ax.set_yticks(())
 
-    axes[3].imshow(img_Luv)
-    axes[3].set_title('Original')
 
-    plt.show()
+    # titles = ['With L channel', 'With u channel', 'With v channel']
+    # cmaps = [plt.cm.Greys, plt.cm.Greys, plt.cm.Greys]
+    # fig, axes = plt.subplots(1, 4, figsize=(10, 30), num=name[0])
+    # objs = zip(axes[:-1], (img_Luv[:, :, 0] / 255.0, img_Luv[:, :, 1] / 255.0, img_Luv[:, :, 2] / 255.0), titles, cmaps)
+    #
+    # for ax, channel, title, cmap in objs:
+    #     ax.imshow(channel, cmap=cmap)
+    #     ax.set_title(title)
+    #     ax.set_xticks(())
+    #     ax.set_yticks(())
+    #
+    # axes[3].imshow(img_Luv)
+    # axes[3].set_title('Original')
+    #
+    # plt.show()
