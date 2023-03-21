@@ -31,7 +31,7 @@ import numpy as np
 # path = '../dataset/classify/color_removal/seg/'
 # output_path='../dataset/classify/box/test/'
 # path_seg = '../dataset/classify/color_removal/label/'
-path = '../dataset/classify/box/test/'
+path = '../dataset/an_test/'
 files = os.listdir(path)
 
 for f in files:
@@ -44,19 +44,20 @@ for f in files:
     img_seg = cv2.cvtColor(img_seg, cv2.COLOR_BGR2GRAY)
     _, img_seg = cv2.threshold(img_seg, 128, 1, cv2.THRESH_BINARY)
 
-    img_Luv = cv2.cvtColor(img_RGB, cv2.COLOR_BGR2HSV)
+    img_Luv = cv2.cvtColor(img_RGB, cv2.COLOR_BGR2Lab)
     # img_Luv[:, :, 0] = img_Luv[:, :, 0] * 0.75
     # img_Luv = cv2.cvtColor(img_Luv, cv2.COLOR_BGR2HSV)
     var = np.var(img_Luv, axis=(0, 1), where=np.repeat(img_seg[..., None], 3, axis=-1).astype(bool))
     mean = np.mean(img_Luv, axis=(0,1), where=np.repeat(img_seg[..., None], 3, axis=-1).astype(bool))
     color_dist = np.sqrt(var[1] + var[2])
+    grey_dist = abs(mean[1] - 128) + abs(mean[2]-128)
     # if color_dist > 5:
     print(f)
     print(mean)
+    print(grey_dist)
     print(np.sqrt(var))
     print(np.sqrt(var[1]+var[2]))
     print(color_dist < 9.5)
-
     # print(np.histogram(img_Luv[...,2], weights=img_seg))
 
     #

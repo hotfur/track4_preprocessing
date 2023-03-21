@@ -7,6 +7,7 @@ import numpy as np
 from concurrent.futures import ThreadPoolExecutor
 import queue
 from msrcr import retinex_FM
+import shutil
 
 
 def findAngle(m1, m2):
@@ -223,7 +224,7 @@ def decoder(q):
     return result
 
 
-def writer(name, obj_type):
+def writer(name, obj_type, white_check):
     path = '../dataset/train/'
     path_seg = '../dataset/segmentation_labels/'
     src_color = cv2.imread(cv2.samples.findFile(path + name + ".jpg"))
@@ -234,19 +235,29 @@ def writer(name, obj_type):
     src *= 255
     # Apply MSRCR
     cropt = cv2.GaussianBlur(cv2.bilateralFilter(retinex_FM(cropt, iter=4), d=9, sigmaSpace=50, sigmaColor=50), ksize=(3, 3), sigmaX=1)
-    # Convert to Luv and calculate chromaticity distance
+    # Convert to Lab and calculate chromaticity distance
+    # And check their distance to white objects
     mask = np.repeat(src[..., None], 3, axis=-1).astype(bool)
-    img_Luv = cv2.cvtColor(cropt, cv2.COLOR_BGR2Luv)
-    img_Luv[:, :, 0] = img_Luv[:, :, 0] * 0.9
-    cropt = cv2.cvtColor(img_Luv, cv2.COLOR_Luv2BGR)
-    var = np.var(img_Luv, axis=(0, 1), where=mask)
+    img_Lab = cv2.cvtColor(cropt, cv2.COLOR_BGR2Lab)
+    img_Lab[:, :, 0] = img_Lab[:, :, 0] * 0.9
+    cropt = cv2.cvtColor(img_Lab, cv2.COLOR_Lab2BGR)
+    var = np.var(img_Lab, axis=(0, 1), where=mask)
+    mean = np.mean(img_Lab, axis=(0,1), where=mask)
     color_dist = np.sqrt(var[1]+var[2])
-    # Remove purely white objects
-    if np.mean(cropt, where=mask) > 255*0.8:
-        cv2.imwrite("../dataset/classify/white_removal/label/" + name + ".jpg", src)
-        cv2.imwrite("../dataset/classify/white_removal/seg/" + name + ".jpg", cropt)
-    # Remove noisy surface objects
-    elif (color_dist < 5):
+    white_dist = abs(mean[1] - 128) + abs(mean[2] - 128)
+
+    # # Remove purely white objects
+    # if np.mean(cropt, where=mask) > 255*0.8:
+    #     cv2.imwrite("../dataset/classify/white_removal/label/" + name + ".jpg", src)
+    #     cv2.imwrite("../dataset/classify/white_removal/seg/" + name + ".jpg", cropt)
+    # If object has a white color, then it must be checked further to determine if
+    # the 3d object is truly white object or just a noisy side of that object
+    if (white_dist < 9.5):
+        white_check.put(name.split("_")[0], [name, obj_type, white_dist])
+        cv2.imwrite("../dataset/classify/white_check_pending/label/" + name + ".jpg", src)
+        cv2.imwrite("../dataset/classify/white_check_pending/seg/" + name + ".jpg", cropt)
+    # Remove monotonic surface objects
+    elif (color_dist < 9.5):
         cv2.imwrite("../dataset/classify/color_removal/label/" + name + ".jpg", src)
         cv2.imwrite("../dataset/classify/color_removal/seg/" + name + ".jpg", cropt)
     # Write objects to their categories
@@ -260,6 +271,26 @@ def writer(name, obj_type):
         cv2.imwrite("../dataset/classify/bottles/label/" + name + ".jpg", src)
         cv2.imwrite("../dataset/classify/bottles/seg/" + name + ".jpg", cropt)
 
+
+def white_object_writer(obj):
+    path = "../dataset/classify/white_check_pending/label/"
+    path_seg = "../dataset/classify/white_check_pending/seg/"
+
+    obj_type = obj[0]
+    # Write objects to their categories
+    for name in obj[1]:
+        if obj_type == "white_removal":
+            shutil.copy(path + name + ".jpg", "../dataset/classify/white_removal/label/" + name + ".jpg")
+            shutil.copy(path_seg + name + ".jpg", "../dataset/classify/white_removal/seg/" + name + ".jpg")
+        elif obj_type == "box":
+            shutil.copy(path + name + ".jpg", "../dataset/classify/box/label/" + name + ".jpg")
+            shutil.copy(path_seg + name + ".jpg", "../dataset/classify/box/seg/" + name + ".jpg")
+        elif obj_type == "abstract":
+            shutil.copy(path + name + ".jpg", "../dataset/classify/abstract/label/" + name + ".jpg")
+            shutil.copy(path_seg + name + ".jpg", "../dataset/classify/abstract/seg/" + name + ".jpg")
+        elif obj_type == "bottles":
+            shutil.copy(path + name + ".jpg", "../dataset/classify/bottles/label/" + name + ".jpg")
+            shutil.copy(path_seg + name + ".jpg", "../dataset/classify/bottles/seg/" + name + ".jpg")
 
 def highest_count_dict(k, dict_list):
     img_count = []
@@ -323,15 +354,45 @@ if __name__ == "__main__":
             if max_indx == 5:
                 bottles[k] = value
 
-
-    # Result writer
+    # Result writer (white_object check pending)
+    white_check = queue.PriorityQueue()
     with ThreadPoolExecutor() as executor:
         for v in boxes.values():
             for item in v:
-                executor.submit(writer, item, "box")
+                executor.submit(writer, item, "box", white_check)
         for v in abstract.values():
             for item in v:
-                executor.submit(writer, item, "abstract")
+                executor.submit(writer, item, "abstract", white_check)
         for v in bottles.values():
             for item in v:
-                executor.submit(writer, item, "bottles")
+                executor.submit(writer, item, "bottles", white_check)
+
+    # Check for white objects
+    pending_objs = decoder(white_check)
+    processed_objs = queue.Queue()
+    for obj in pending_objs.keys():
+        num_img = len(pending_objs[obj])
+        img_names_list = np.array(num_img)
+        white_dist_list = np.array(num_img)
+        type = pending_objs[obj][0][1]
+        i = 0
+        for img in pending_objs[obj]:
+            img_names_list[i] = img[0]
+            white_dist_list[i] = img[2]
+            i+=1
+        ptp = np.ptp(white_dist_list) # peek-to-peek value
+        mean = np.mean(white_dist_list)
+        # Definitely a color object
+        if ptp > 9.5:
+            processed_objs.put("white_removal", img_names_list[white_dist_list<9.5])
+            processed_objs.put((type, img_names_list[white_dist_list>=9.5]))
+        # Else it is a white object and we should only keep most valuable information
+        # by comparing with the mean
+        else:
+            processed_objs.put("white_removal", img_names_list[white_dist_list < mean])
+            processed_objs.put((type, img_names_list[white_dist_list >= mean]))
+
+    # Remove white objects
+    with ThreadPoolExecutor() as executor:
+        while processed_objs.empty():
+            executor.submit(white_object_writer, processed_objs.get())
