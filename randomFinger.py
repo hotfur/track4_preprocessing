@@ -4,7 +4,7 @@ import math
 import cv2
 import numpy as np
 from rectangle import Point
-def randomFinger(img, p=0.5, scale = (0.02, 0.33), ratio=(0.125, 0.75), 
+def randomFinger(img, p=0.5, scale = (0.02, 0.2), ratio=(0.125, 0.75),
                   value = (0,0,0), inplace = False, min_count = 1, max_count = 3):
     # probability to execute the random
     if random.random()>p:
