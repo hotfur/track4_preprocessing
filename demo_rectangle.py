@@ -20,7 +20,7 @@ print(r.areIntersect(AB, AC)[0], r.areIntersect(AB, AC)[1].x, r.areIntersect(AB,
 
 data_dir = 'classify/rectangle/label/'
 files = os.listdir(data_dir)
-for file in files[10000:]:
+for file in files[1:]:
     img = cv2.imread(data_dir+file)
     res, res_seg = a.affineFinger(img, img) # the second parameter should be the segmentation
     fig, ax = plt.subplots(1,3)
