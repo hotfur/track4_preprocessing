@@ -252,14 +252,11 @@ def writer(name, obj_type, white_check):
     #     cv2.imwrite("../dataset/classify/white_removal/seg/" + name + ".jpg", cropt)
     # If object has a white color, then it must be checked further to determine if
     # the 3d object is truly white object or just a noisy side of that object
-    if (white_dist < 9.5):
+    # Remove monotonic surface objects
+    if (color_dist < 17) and (white_dist < 9.5) and (mean[0] > 125):
         white_check.put(name.split("_")[0], [name, obj_type, white_dist])
         cv2.imwrite("../dataset/classify/white_check_pending/label/" + name + ".jpg", src)
         cv2.imwrite("../dataset/classify/white_check_pending/seg/" + name + ".jpg", cropt)
-    # Remove monotonic surface objects
-    elif (color_dist < 9.5):
-        cv2.imwrite("../dataset/classify/color_removal/label/" + name + ".jpg", src)
-        cv2.imwrite("../dataset/classify/color_removal/seg/" + name + ".jpg", cropt)
     # Write objects to their categories
     elif obj_type == "box":
         cv2.imwrite("../dataset/classify/box/label/" + name + ".jpg", src)
@@ -367,32 +364,32 @@ if __name__ == "__main__":
             for item in v:
                 executor.submit(writer, item, "bottles", white_check)
 
-    # Check for white objects
-    pending_objs = decoder(white_check)
-    processed_objs = queue.Queue()
-    for obj in pending_objs.keys():
-        num_img = len(pending_objs[obj])
-        img_names_list = np.array(num_img)
-        white_dist_list = np.array(num_img)
-        type = pending_objs[obj][0][1]
-        i = 0
-        for img in pending_objs[obj]:
-            img_names_list[i] = img[0]
-            white_dist_list[i] = img[2]
-            i+=1
-        ptp = np.ptp(white_dist_list) # peek-to-peek value
-        mean = np.mean(white_dist_list)
-        # Definitely a color object
-        if ptp > 9.5:
-            processed_objs.put("white_removal", img_names_list[white_dist_list<9.5])
-            processed_objs.put((type, img_names_list[white_dist_list>=9.5]))
-        # Else it is a white object and we should only keep most valuable information
-        # by comparing with the mean
-        else:
-            processed_objs.put("white_removal", img_names_list[white_dist_list < mean])
-            processed_objs.put((type, img_names_list[white_dist_list >= mean]))
-
-    # Remove white objects
-    with ThreadPoolExecutor() as executor:
-        while processed_objs.empty():
-            executor.submit(white_object_writer, processed_objs.get())
+    # # Check for white objects
+    # pending_objs = decoder(white_check)
+    # processed_objs = queue.Queue()
+    # for obj in pending_objs.keys():
+    #     num_img = len(pending_objs[obj])
+    #     img_names_list = np.array(num_img)
+    #     white_dist_list = np.array(num_img)
+    #     type = pending_objs[obj][0][1]
+    #     i = 0
+    #     for img in pending_objs[obj]:
+    #         img_names_list[i] = img[0]
+    #         white_dist_list[i] = img[2]
+    #         i+=1
+    #     ptp = np.ptp(white_dist_list) # peek-to-peek value
+    #     mean = np.mean(white_dist_list)
+    #     # # Definitely a color object
+    #     # if ptp > 9.5:
+    #     #     processed_objs.put("white_removal", img_names_list[white_dist_list<9.5])
+    #     #     processed_objs.put((type, img_names_list[white_dist_list>=9.5]))
+    #     # Else it is a white object and we should only keep most valuable information
+    #     # by comparing with the mean
+    #     # else:
+    #     processed_objs.put("white_removal", img_names_list[white_dist_list <= mean])
+    #     processed_objs.put((type, img_names_list[white_dist_list > mean]))
+    #
+    # # Remove white objects
+    # with ThreadPoolExecutor() as executor:
+    #     while processed_objs.empty():
+    #         executor.submit(white_object_writer, processed_objs.get())
