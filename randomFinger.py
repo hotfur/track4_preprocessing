@@ -4,14 +4,18 @@ import math
 import cv2
 import numpy as np
 from rectangle import Point
-def randomFinger(img, p=0.5, scale = (0.02, 0.33), ratio=(0.125, 0.75), 
+
+"""
+    Randomly erase in the shape of finger to an img 
+"""
+def randomFinger(img, p=0.5, scale = (0.125, 0.33), ratio=(0.125, 0.75), 
                   value = (0,0,0), inplace = False, min_count = 1, max_count = 3):
     # probability to execute the random
     if random.random()>p:
-        return
+        return img
     
     # initial image values
-    result = np.array(img)
+    res = np.array(img)
     img_h = img.shape[0]
     img_w = img.shape[1]
     img_ch = img.shape[2]
@@ -21,7 +25,7 @@ def randomFinger(img, p=0.5, scale = (0.02, 0.33), ratio=(0.125, 0.75),
     # base on number of finger in range
     count = min_count if min_count == max_count else \
             random.randint(min_count, max_count)
-    res = np.array(img)
+    
     # each finger
     for _ in range(count):
         #try 10 times for sure
