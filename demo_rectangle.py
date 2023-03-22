@@ -18,7 +18,7 @@ AC = r.points_to_line(B, C)
 print(AB.a, AB.b, AB.c)
 print(r.areIntersect(AB, AC)[0], r.areIntersect(AB, AC)[1].x, r.areIntersect(AB, AC)[1].y)
 
-data_dir = 'classify/rectangle/label/'
+data_dir = 'small_crop_result/'
 files = os.listdir(data_dir)
 for file in files[1:]:
     img = cv2.imread(data_dir+file)

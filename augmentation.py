@@ -30,12 +30,12 @@ def affineFinger(img, img_seg, p = 1, degrees = (0, 360), scales = (1, 1.5), she
     img_w1 = int(img_w+abs(shear[0, 1]*img_h))
     img_h1 = int(img_h+abs(shear[1,0]*img_w))
     
-    img_w2 = int(math.sqrt((img_w1*scale_x)**2+(img_h1*scale_x)**2))
-    img_h2 = int(math.sqrt((img_w1*scale_x)**2+(img_h1*scale_x)**2))
+    img_w2 = 2*int(math.sqrt((img_w1*scale_x)**2+(img_h1*scale_x)**2))
+    img_h2 = 2*int(math.sqrt((img_w1*scale_x)**2+(img_h1*scale_x)**2))
     
   
-    shear[0,2] = -shear[0,1] * img_w1/2 + img_w2/4
-    shear[1,2] = -shear[1,0] * img_h1/2 + img_h2/4
+    shear[0,2] = -shear[0,1] * img_w1/2 + img_w2*0.4
+    shear[1,2] = -shear[1,0] * img_h1/2 + img_h2*0.4
     
     # translation = np.array([[1, 0, ],
     #                         [0, 1, img_h2/3]])
